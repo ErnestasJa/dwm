@@ -44,6 +44,10 @@
 #include "drw.h"
 #include "util.h"
 
+#include <glib.h>
+#include <sys/types.h>
+#include <pwd.h>
+
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
@@ -188,6 +192,7 @@ static Client *nexttiled(Client *c);
 static void pop(Client *);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
+static void readconfig();
 static Monitor *recttomon(int x, int y, int w, int h);
 static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
@@ -1273,6 +1278,36 @@ quit(const Arg *arg)
 	running = 0;
 }
 
+void
+readconfig()
+{
+	char buf[1024];
+	const char *searchDirs[] = {NULL, NULL};
+
+	if ((searchDirs[0] = getenv("HOME")) == NULL) {
+		searchDirs[0] = getpwuid(getuid())->pw_dir;
+	}
+
+	// load config
+	GKeyFile* keyFile = g_key_file_new();
+	GError *error = NULL;
+
+	if (!g_key_file_load_from_dirs(keyFile, CONFIG_FILENAME, searchDirs, NULL, G_KEY_FILE_NONE, &error)){
+		fprintf(stderr, "dwm: failed to load config %s, message: %s\n", CONFIG_FILENAME, error->message);
+		return;
+	}
+
+	for(int i = 0; i < 9; i++){
+		snprintf(buf, 1024, "tag%i", i+1);
+		gchar * tagName = g_key_file_get_string (keyFile, "tags", buf, NULL);
+
+		if(tagName != NULL)
+			strncpy(tags[i], tagName, TAG_NAME_LEN-1);
+	}
+
+    g_key_file_free (keyFile);
+}
+
 Monitor *
 recttomon(int x, int y, int w, int h)
 {
@@ -2138,6 +2173,7 @@ main(int argc, char *argv[])
 		die("dwm: cannot open display\n");
 	checkotherwm();
 	setup();
+	readconfig();
 	scan();
 	run();
 	cleanup();
