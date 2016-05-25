@@ -189,6 +189,7 @@ static void monocle(Monitor *m);
 static void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
 static Client *nexttiled(Client *c);
+static void nextlanguage();
 static void pop(Client *);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
@@ -271,6 +272,7 @@ static Display *dpy;
 static Drw *drw;
 static Monitor *mons, *selmon;
 static Window root;
+static int selected_language = 0;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
@@ -711,6 +713,20 @@ dirtomon(int dir)
 	return m;
 }
 
+void 
+drawlanguage(int *x)
+{
+	int language_w, invert;
+
+	invert = 1;
+	language_w = TEXTW(languages[selected_language]);
+	drw_setscheme(drw, &scheme[SchemeNorm]);
+	drw_text(drw, *x, 0, language_w, bh, languages[selected_language], invert);
+	drw_rect(drw, *x, 1, language_w-1, bh-1, 0, 1, 0);
+
+	(*x)+=language_w;
+}
+
 void
 drawbar(Monitor *m)
 {
@@ -738,6 +754,9 @@ drawbar(Monitor *m)
 	drw_setscheme(drw, &scheme[SchemeNorm]);
 	drw_text(drw, x, 0, w, bh, m->ltsymbol, 0);
 	x += w;
+
+	drawlanguage(&x);
+
 	xx = x;
 	if (m == selmon) { /* status is only drawn on selected monitor */
 		w = TEXTW(stext);
@@ -1224,6 +1243,20 @@ nexttiled(Client *c)
 {
 	for (; c && (c->isfloating || !ISVISIBLE(c)); c = c->next);
 	return c;
+}
+
+void 
+nextlanguage()
+{
+	Arg arg;
+	char * fullcmd [] = {"setxkbmap",  NULL, NULL};
+
+	selected_language = (selected_language + 1) % max_languages;
+	fullcmd[1] = languages[selected_language];
+	arg.v = fullcmd;
+	
+	spawn(&arg);
+	drawbars();
 }
 
 void
